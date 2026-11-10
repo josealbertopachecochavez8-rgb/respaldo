@@ -1,0 +1,241 @@
+'use client';
+import { useState, useMemo } from 'react';
+
+export default function SistemaV5() {
+  const [fechaReporte, setFechaReporte] = useState(new Date().toISOString().split('T')[0]);
+  const [tipoFiltro, setTipoFiltro] = useState("TODOS");
+  const [estatusFiltro, setEstatusFiltro] = useState("PENDIENTE");
+  const [busqueda, setBusqueda] = useState("");
+  const [notificaciones, setNotificaciones] = useState([]);
+  const [verNotis, setVerNotis] = useState(false);
+  
+  const [rechazandoFolio, setRechazandoFolio] = useState(null);
+  const [editandoFolio, setEditandoFolio] = useState(null);
+
+  const catalogo = [
+    "ENTRADA", "SALIDA", "RETARDO MENOR", "RETARDO MAYOR",
+    "OMISIÓN DE ENTRADA POR COMISIÓN", "OMISIÓN DE SALIDA POR COMISIÓN",
+    "MOTIVOS PERSONALES", "PERMISO ECONÓMICO",
+    "VACACIONES: 1ER PERÍODO", "VACACIONES: 2DO PERÍODO",
+    "LICENCIA MÉDICA", "CUIDADOS MATERNOS/PATERNOS"
+  ];
+
+  const MOTIVOS_RECHAZO = [
+    "DOCUMENTACIÓN ILEGIBLE", "FALTA DE FIRMA AUTÓGRAFA",
+    "PERIODO EXCEDE EL LÍMITE", "CERTIFICADO MÉDICO SIN SELLO",
+    "ERROR EN ID DE SERVIDOR PÚBLICO", "SOLICITUD EXTEMPORÁNEA"
+  ];
+
+  const [empleados, setEmpleados] = useState(() => {
+    const nombres = ["ALBERTO", "MARÍA", "JUAN", "GLORIA", "ROBERTO", "CARMEN", "RICARDO", "ELENA"];
+    const apellidos = ["PACHECO", "CHÁVEZ", "TREVIÑO", "LÓPEZ", "MENDOZA", "GARCÍA"];
+    
+    return Array.from({ length: 15 }, (_, i) => {
+      const incidenciaAsignada = catalogo[i % catalogo.length];
+      return {
+        folio: (i + 1).toString().padStart(3, '0'),
+        id: `SP-${6000 + i}`,
+        nombre: `${nombres[i % nombres.length]} ${apellidos[i % apellidos.length]} ${apellidos[(i + 1) % apellidos.length]}`,
+        incidencia: incidenciaAsignada,
+        estado: "PENDIENTE",
+        motivoRechazo: "",
+        // Solo asignamos una ruta de archivo si es LICENCIA MÉDICA
+        archivoUrl: incidenciaAsignada === "LICENCIA MÉDICA" ? "/documentos/licencia_medica_ejemplo.pdf" : null
+      };
+    });
+  });
+
+  const listaFiltrada = useMemo(() => {
+    return empleados.filter(e => {
+      const matchBusqueda = e.folio.includes(busqueda) || e.nombre.toUpperCase().includes(busqueda.toUpperCase());
+      const matchTipo = tipoFiltro === "TODOS" || e.incidencia === tipoFiltro;
+      const matchEstatus = estatusFiltro === "TODOS" || e.estado === estatusFiltro;
+      return matchBusqueda && matchTipo && matchEstatus;
+    });
+  }, [empleados, busqueda, tipoFiltro, estatusFiltro]);
+
+  const agregarNotificacion = (msg, tipo) => {
+    const color = tipo === 'AUTORIZADO' ? 'text-emerald-600' : 'text-rose-600';
+    setNotificaciones(prev => [{ id: Date.now(), txt: msg, color, hora: new Date().toLocaleTimeString() }, ...prev]);
+  };
+
+  const manejarAccion = (folio, nuevoEstado, motivo = "") => {
+    const emp = empleados.find(e => e.folio === folio);
+    setEmpleados(prev => prev.map(e => 
+      e.folio === folio ? { ...e, estado: nuevoEstado, motivoRechazo: motivo } : e
+    ));
+    agregarNotificacion(`${nuevoEstado === 'AUTORIZADO' ? '✅' : '❌'} ${emp.nombre}`, nuevoEstado);
+    setRechazandoFolio(null);
+  };
+
+  const abrirPDF = (url) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const descargarExcel = () => {
+    const encabezados = "FOLIO,ID SERVIDOR,NOMBRE,INCIDENCIA,ESTATUS\n";
+    const filas = listaFiltrada.map(e => `${e.folio},${e.id},${e.nombre},${e.incidencia},${e.estado}`).join("\n");
+    const blob = new Blob(["\uFEFF" + encabezados + filas], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `RH_REPORTE_${fechaReporte}.csv`;
+    link.click();
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] p-8 font-sans uppercase text-slate-700">
+      <div className="max-w-[1500px] mx-auto bg-white rounded-[2rem] shadow-2xl shadow-slate-200 overflow-hidden border border-slate-100">
+        
+        {/* BARRA DE SALIDA */}
+        <div className="bg-slate-50 px-10 py-3 flex justify-end border-b border-slate-100">
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="flex items-center gap-2 text-[10px] font-black text-rose-500 hover:text-rose-700 transition-colors tracking-widest"
+          >
+            <span>CERRAR SESIÓN</span>
+            <span className="text-sm">🚪</span>
+          </button>
+        </div>
+
+        {/* HEADER INSTITUCIONAL */}
+        <header className="relative p-10 flex justify-between items-center bg-white border-b border-slate-100">
+          <img src="/logo-sep.png" alt="SEP" className="h-16 w-auto object-contain" />
+          <div className="text-center">
+            <h1 className="text-3xl font-black tracking-tight text-slate-800">MÓDULO DE LICENCIAS MÉDICAS</h1>
+            <div className="h-1 w-24 bg-[#BC955C] mx-auto my-2 rounded-full"></div>
+            <p className="text-[11px] font-bold tracking-[0.3em] text-slate-400">USICAMM • ÁREA DE VALIDACIÓN</p>
+          </div>
+          <img src="/logo-usicamm.png" alt="USICAMM" className="h-16 w-auto object-contain" />
+        </header>
+
+        {/* HERRAMIENTAS */}
+        <div className="bg-slate-50/50 p-8 grid grid-cols-1 md:grid-cols-5 gap-6 border-b border-slate-100">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 ml-1">FILTRAR SERVIDOR</label>
+            <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} className="w-full bg-white border border-slate-200 p-3 rounded-xl font-bold text-xs shadow-sm focus:ring-2 focus:ring-[#BC955C] outline-none" placeholder="NOMBRE O FOLIO..." />
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 ml-1">TIPO DE INCIDENCIA</label>
+            <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-full bg-white border border-slate-200 p-3 rounded-xl font-bold text-xs shadow-sm outline-none">
+              <option value="TODOS">TODAS</option>
+              <option value="LICENCIA MÉDICA">SOLO LICENCIAS MÉDICAS</option>
+              {catalogo.filter(c => c !== "LICENCIA MÉDICA").map(i => <option key={i} value={i}>{i}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 ml-1">ESTADO TRÁMITE</label>
+            <select value={estatusFiltro} onChange={(e) => setEstatusFiltro(e.target.value)} className="w-full bg-white border border-slate-200 p-3 rounded-xl font-bold text-xs shadow-sm outline-none">
+              <option value="TODOS">VER TODO</option>
+              <option value="PENDIENTE">⏳ PENDIENTES</option>
+              <option value="AUTORIZADO">✅ AUTORIZADOS</option>
+              <option value="RECHAZADO">❌ RECHAZADOS</option>
+            </select>
+          </div>
+          <div className="flex items-end">
+             <button onClick={descargarExcel} className="w-full bg-slate-800 text-white p-3.5 rounded-xl font-black text-[11px] shadow-lg hover:bg-slate-700 transition-all">
+               DESCARGAR PADRÓN 📊
+             </button>
+          </div>
+          <div className="flex items-end justify-center">
+            <button onClick={() => setVerNotis(!verNotis)} className="relative p-3 bg-white border border-slate-200 rounded-xl">
+              <span className="text-xl">🔔</span>
+              {notificaciones.length > 0 && <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[9px] w-5 h-5 flex items-center justify-center rounded-full font-black">{notificaciones.length}</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* TABLA PRINCIPAL */}
+        <div className="p-8">
+          <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 text-slate-400 text-[10px] font-black tracking-widest border-b border-slate-100 uppercase">
+                <tr>
+                  <th className="p-6">FOLIO</th>
+                  <th className="p-6">SERVIDOR PÚBLICO</th>
+                  <th className="p-6">INCIDENCIA</th>
+                  <th className="p-6 text-center">JUSTIFICANTE (PDF)</th>
+                  <th className="p-6 text-center">ESTATUS</th>
+                  <th className="p-6 text-center">ACCIONES</th>
+                </tr>
+              </thead>
+              <tbody className="text-[12px] font-medium divide-y divide-slate-50">
+                {listaFiltrada.map(e => (
+                  <tr key={e.folio} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-6 font-black text-slate-400 italic">#{e.folio}</td>
+                    <td className="p-6">
+                      <div className="font-black text-slate-800">{e.nombre}</div>
+                      <div className="text-[10px] text-slate-400 font-bold">{e.id}</div>
+                    </td>
+                    <td className="p-6">
+                       <span className={`px-3 py-1 rounded-md font-bold text-[10px] ${e.incidencia === 'LICENCIA MÉDICA' ? 'bg-purple-50 text-purple-700' : 'bg-slate-100 text-slate-500'}`}>
+                         {e.incidencia}
+                       </span>
+                    </td>
+                    <td className="p-6 text-center">
+                      {/* LÓGICA EXCLUSIVA: Solo muestra el botón si es LICENCIA MÉDICA y tiene archivo */}
+                      {e.incidencia === "LICENCIA MÉDICA" && e.archivoUrl ? (
+                        <button 
+                          onClick={() => abrirPDF(e.archivoUrl)}
+                          className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-all text-[9px] font-black mx-auto flex items-center gap-2 justify-center shadow-md shadow-emerald-100"
+                        >
+                          📄 ABRIR LICENCIA
+                        </button>
+                      ) : (
+                        <span className="text-[9px] font-bold text-slate-300 italic">N/A</span>
+                      )}
+                    </td>
+                    <td className="p-6 text-center">
+                      <span className={`px-4 py-1.5 rounded-full text-[9px] font-black border ${
+                        e.estado === 'AUTORIZADO' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
+                        e.estado === 'RECHAZADO' ? 'bg-rose-50 text-rose-600 border-rose-100' : 
+                        'bg-amber-50 text-amber-600 border-amber-100'
+                      }`}>{e.estado}</span>
+                    </td>
+                    <td className="p-6">
+                      <div className="flex gap-2 justify-center">
+                        <button onClick={() => manejarAccion(e.folio, 'AUTORIZADO')} className="p-2.5 bg-white border border-slate-200 rounded-lg hover:bg-emerald-500 hover:text-white transition-all shadow-sm">✓</button>
+                        <button onClick={() => setRechazandoFolio(e.folio)} className="p-2.5 bg-white border border-slate-200 rounded-lg hover:bg-rose-500 hover:text-white transition-all shadow-sm">✕</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* MODAL RECHAZO */}
+        {rechazandoFolio && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-sm rounded-[2.5rem] shadow-2xl p-8 border border-slate-100">
+              <h3 className="text-lg font-black text-slate-800 text-center mb-6 uppercase">Causa de Rechazo</h3>
+              <div className="space-y-2">
+                {MOTIVOS_RECHAZO.map(m => (
+                  <button key={m} onClick={() => manejarAccion(rechazandoFolio, 'RECHAZADO', m)} className="w-full text-left p-4 rounded-2xl border border-slate-100 hover:border-rose-200 hover:bg-rose-50 text-[10px] font-black text-slate-600 transition-all">
+                    {m}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setRechazandoFolio(null)} className="w-full mt-6 py-3 text-slate-400 font-black text-[10px] tracking-widest">CANCELAR GESTIÓN</button>
+            </div>
+          </div>
+        )}
+
+        {/* FOOTER */}
+        <footer className="bg-slate-50 p-12 border-t border-slate-100">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+            <div className="space-y-1">
+              <p className="text-xl font-black tracking-tighter text-slate-800">DIRECCIÓN GENERAL DE ADMINISTRACIÓN</p>
+              <p className="text-sm font-bold text-[#BC955C]">DEPARTAMENTO DE LICENCIAS Y SEGURIDAD SOCIAL</p>
+              <p className="text-xs font-bold text-slate-400">UNIDAD DEL SISTEMA PARA LA CARRERA DE LAS MAESTRAS Y LOS MAESTROS</p>
+            </div>
+            <div className="text-left md:text-right">
+              <p className="text-sm font-black text-slate-800 uppercase border-b-2 border-[#BC955C] inline-block pb-1">Ing. José Alberto Pacheco Chávez</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </div>
+  );
+}
