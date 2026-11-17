@@ -507,15 +507,9 @@ Unidad del Sistema para la Carrera de las Maestras y los Maestros               
           <div className="bg-white px-6 py-3.5 flex justify-between items-center border-t border-gray-200 shadow-inner">
             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-              Servidor de Anuncios Oficial SEP | 2026
+              
             </span>
-            <button 
-              type="button" 
-              onClick={() => setMostrarAvisos(false)}
-              className="bg-gradient-to-r from-amber-800 to-amber-950 hover:from-amber-900 hover:to-black text-white px-7 py-2 text-xs font-black uppercase rounded-xl transition-all cursor-pointer shadow-md"
-            >
-              Cerrar Anuncios ✓
-            </button>
+           
           </div>
 
         </div>
@@ -627,11 +621,9 @@ Unidad del Sistema para la Carrera de las Maestras y los Maestros               
                 </div>
                 <div>
                   <h2 className="text-[10px] font-black tracking-widest uppercase text-amber-300 bg-black/30 px-2 py-0.5 rounded-full border border-amber-400/30 inline-block">
-                    Secretaría de Educación Pública — SEP
-                  </h2>
+Unidad del Sistema para la Carrera de las Maestras y Maestros                  </h2>
                   <p className="text-xs font-black text-white uppercase tracking-wide mt-0.5">
-                    Disposiciones Marco y Lineamientos Oficiales — USICAMM 2026-2027
-                  </p>
+Marco normativo                  </p>
                 </div>
               </div>
 
@@ -765,15 +757,8 @@ Unidad del Sistema para la Carrera de las Maestras y los Maestros               
             <div className="bg-white px-6 py-4 flex justify-between items-center border-t border-gray-200 shadow-inner">
               <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                Plataforma Oficial Verificada USICAMM 2026-2027
               </span>
-              <button 
-                type="button" 
-                onClick={() => setMostrarMarcoNormativo(false)}
-                className="bg-gradient-to-r from-[#691C32] to-[#4A1322] hover:from-[#521326] hover:to-[#310915] text-white px-7 py-2.5 text-xs font-black uppercase rounded-xl shadow-md hover:shadow-lg cursor-pointer transition-all active:scale-95 border border-amber-300/30"
-              >
-                Entendido / Cerrar Ventana ✓
-              </button>
+             
             </div>
 
           </div>

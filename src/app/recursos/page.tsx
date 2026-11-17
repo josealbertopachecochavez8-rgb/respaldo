@@ -2,6 +2,135 @@
 import { useRouter } from 'next/navigation'
 import { useState, useMemo, useEffect } from 'react'
 export default function SistemaCapitalHumanoV5() {
+  const [fechaInicio, setFechaInicio] = useState(new Date().toISOString().split('T')[0]);
+const [fechaFin, setFechaFin] = useState(new Date().toISOString().split('T')[0]);
+  // NUEVOS ESTADOS PARA EL HISTORIAL DE ANUNCIOS FLOTANTE
+  const [mostrarModalHistorialAnuncios, setMostrarModalHistorialAnuncios] = useState(false);
+  const [listaAnunciosGuardados, setListaAnunciosGuardados] = useState<any[]>([]);
+// --- ESTADOS PARA REPORTE POR ÁREA ---
+  const [verModalAreaReporte, setVerModalAreaReporte] = useState(false);
+  const [areaSeleccionadaReporte, setAreaSeleccionadaReporte] = useState("");
+  const areasUSICAMM = [
+    "Dirección General de Admisión",
+    "Dirección General de Promoción",
+    "Dirección General de Reconocimiento",
+    "Dirección General de Administración",
+    "Dirección de Coordinación Institucional",
+    "Dirección de Seguimiento para la Consolidación del Servicio Profesional Docente",
+    "Dirección de Operación y Seguimiento de los Procesos de Ingreso",
+    "Dirección de Promoción en la Función y Horas Adicionales",
+    "Dirección de Consolidación de Información en Educación Básica",
+    "Dirección de Implementación de Incentivos",
+    "Dirección de Promoción en Educación Media Superior",
+    "Dirección de Evaluación del Desempeño",
+    "Dirección de Procesos para la Permanencia",
+    "Dirección de Sistemas de Información",
+    "Dirección de Planeación y Administración"
+  ];
+  const generarReportePorArea = (area: string) => {
+    // Tomamos todos los registros de la base de incidencias global
+    const todasLasIncidencias = JSON.parse(localStorage.getItem("base_incidencias") || "[]");
+    
+    // Filtramos los registros que correspondan a la unidad de adscripción o área seleccionada
+    const incidenciasArea = todasLasIncidencias.filter((e: any) => {
+      const adscripcion = (e.unidadAdscripcion || e.departamento || e.area || "").toUpperCase();
+      return adscripcion.includes(area.toUpperCase());
+    });
+
+    // Contadores específicos por tipo de incidencia solicitada
+    let omisionEntrada = 0;
+    let omisionSalida = 0;
+    let retardoMenor = 0;
+    let retardoMayor = 0;
+    let comisionEntrada = 0;
+    let comisionSalida = 0;
+    let comisionTodoElDia = 0;
+    let permisoEconomico = 0;
+    let vac1er = 0;
+    let vac2do = 0;
+    let vacExtra = 0;
+    let licenciaMedica = 0;
+    let cuidadosMatPaternos = 0;
+    let constanciaMedica = 0;
+
+    incidenciasArea.forEach((e: any) => {
+      const inc = (e.incidencia || e.tipo || "").toUpperCase();
+      if (inc.includes("OMISIÓN DE ENTRADA")) omisionEntrada++;
+      else if (inc.includes("OMISIÓN DE SALIDA")) omisionSalida++;
+      else if (inc.includes("RETARDO MENOR")) retardoMenor++;
+      else if (inc.includes("RETARDO MAYOR")) retardoMayor++;
+      else if (inc.includes("ENTRADA POR COMISIÓN")) comisionEntrada++;
+      else if (inc.includes("SALIDA POR COMISIÓN")) comisionSalida++;
+      else if (inc.includes("COMISIÓN TODO EL DIA")) comisionTodoElDia++;
+      else if (inc.includes("PERMISO ECONÓMICO")) permisoEconomico++;
+      else if (inc.includes("1ER PERÍODO")) vac1er++;
+      else if (inc.includes("2DO PERÍODO")) vac2do++;
+      else if (inc.includes("EXTRAORDINARIAS")) vacExtra++;
+      else if (inc.includes("LICENCIA MÉDICA")) licenciaMedica++;
+      else if (inc.includes("CUIDADOS MATERNOS")) cuidadosMatPaternos++;
+      else if (inc.includes("CONSTANCIA MÉDICA")) constanciaMedica++;
+    });
+
+    const totalPermisos = omisionEntrada + omisionSalida + retardoMenor + retardoMayor + comisionEntrada + comisionSalida + comisionTodoElDia + permisoEconomico + vac1er + vac2do + vacExtra + licenciaMedica + cuidadosMatPaternos + constanciaMedica;
+
+    // Estructura del reporte en CSV
+    const rows = [
+      ["REPORTE ESTADÍSTICO DE INCIDENCIAS POR ÁREA - USICAMM"],
+      [`ÁREA / DIRECCIÓN: ${area.toUpperCase()}`],
+      [`FECHA DE EMISIÓN: ${new Date().toLocaleDateString()}`],
+      [`TOTAL DE INCIDENCIAS REGISTRADAS: ${totalPermisos}`],
+      [],
+      ["TIPO DE INCIDENCIA / PERMISO", "TOTAL REGISTRADOS"],
+      ["OMISIÓN DE ENTRADA", omisionEntrada],
+      ["OMISIÓN DE SALIDA", omisionSalida],
+      ["RETARDO MENOR", retardoMenor],
+      ["RETARDO MAYOR", retardoMayor],
+      ["ENTRADA POR COMISIÓN", comisionEntrada],
+      ["SALIDA POR COMISIÓN", comisionSalida],
+      ["COMISIÓN TODO EL DIA", comisionTodoElDia],
+      ["PERMISO ECONÓMICO", permisoEconomico],
+      ["VACACIONES: 1ER PERÍODO", vac1er],
+      ["VACACIONES: 2DO PERÍODO", vac2do],
+      ["VACACIONES EXTRAORDINARIAS", vacExtra],
+      ["LICENCIA MÉDICA", licenciaMedica],
+      ["CUIDADOS MATERNOS / PATERNOS", cuidadosMatPaternos],
+      ["CONSTANCIA MÉDICA DE TIEMPO DE CONSULTA", constanciaMedica],
+      [],
+      ["DETALLE DE TRÁMITES EN ESTE ÁREA"],
+      ["FOLIO", "EMPLEADO", "INCIDENCIA", "ESTATUS", "FECHA"]
+    ];
+
+    incidenciasArea.forEach((e: any) => {
+      const nombreEmp = `${e.paterno || ""} ${e.materno || ""} ${e.nombre || e.nombreEmpleado || ""}`.trim() || "SERVIDOR PÚBLICO";
+      rows.push([
+        `"${e.folioDigital || e.folio || 'N/A'}"`,
+        `"${nombreEmp}"`,
+        `"${e.incidencia || e.tipo || 'N/A'}"`,
+        `"${e.estado || e.estatusActual || 'PENDIENTE'}"`,
+        `"${e.fecha || e.fechaRegistro || 'N/A'}"`
+      ]);
+    });
+
+    const content = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const nombreArchivoLimpieza = area.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+    link.setAttribute("download", `REPORTE_AREA_${nombreArchivoLimpieza}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    setVerModalAreaReporte(false);
+    alert(`¡Reporte de "${area}" generado y descargado con éxito!`);
+  };
+  const abrirHistorialAnuncios = () => {
+    const anuncios = JSON.parse(localStorage.getItem('lista_anuncios') || '[]');
+    setListaAnunciosGuardados(anuncios);
+    setMostrarModalHistorialAnuncios(true);
+  };
   // Estados y función para el botón Subir Anuncio (Jefe)
   const [mostrarModalSubirAviso, setMostrarModalSubirAviso] = useState(false);
   const [tituloInput, setTituloInput] = useState("");
@@ -332,16 +461,31 @@ URL.revokeObjectURL(url);
           </div>
           
         </header>
-
-        {/* PANEL DE CONTROLES */}
-        <div className="bg-[#f8f9fa] p-8 grid grid-cols-1 md:grid-cols-4 gap-8 border-b border-gray-200">
-          <div className="space-y-2">
-            <label className="text-[10px] text-black font-black tracking-widest">FECHA DE CORTE:</label>
-            <input type="date" value={fechaReporte} onChange={(e) => setFechaReporte(e.target.value)} className="w-full bg-white text-black border-2 border-black p-3 text-sm font-bold outline-none focus:ring-2 ring-[#BC955C]" />
-          </div>
+{/* PANEL DE CONTROLES */}
+        <div className="bg-[#f8f9fa] p-8 grid grid-cols-1 md:grid-cols-5 gap-6 border-b border-gray-200 items-end">
           
+          {/* PERIODO (DEL / AL) EN LUGAR DE FECHA DE CORTE */}
           <div className="space-y-2">
-            <label className="text-[10px] text-black font-black tracking-widest">TIPO DE FALTA:</label>
+            <label className="text-[10px] text-black font-black tracking-widest uppercase">Del (Periodo):</label>
+            <input 
+              type="date" 
+              value={fechaInicio} 
+              onChange={(e) => setFechaInicio(e.target.value)} 
+              className="w-full bg-white text-black border-2 border-black p-3 text-xs font-bold outline-none focus:ring-2 ring-[#BC955C]" 
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] text-black font-black tracking-widest uppercase">Al (Periodo):</label>
+            <input 
+              type="date" 
+              value={fechaFin} 
+              onChange={(e) => setFechaFin(e.target.value)} 
+              className="w-full bg-white text-black border-2 border-black p-3 text-xs font-bold outline-none focus:ring-2 ring-[#BC955C]" 
+            />
+          </div>          
+          <div className="space-y-2">
+            <label className="text-[10px] text-black font-black tracking-widest">INCIDENCIA:</label>
             <select value={tipoFiltro} onChange={(e) => setTipoFiltro(e.target.value)} className="w-full bg-white text-black border-2 border-black p-3 text-sm font-bold outline-none focus:ring-2 ring-[#BC955C]">
 <option value="TODOS">TODAS LAS INCIDENCIAS</option>              {catalogo.map(i => <option key={i} value={i}>{i}</option>)}
             </select>
@@ -352,10 +496,123 @@ URL.revokeObjectURL(url);
             <label className="text-[10px] text-black font-black tracking-widest">BUSCADOR:</label>
             <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value.toUpperCase())} className="w-full bg-white text-black border-2 border-black p-3 text-sm font-bold outline-none focus:ring-2 ring-[#BC955C]" placeholder="BUSCAR POR FOLIO O NOMBRE..." />
           </div>
+          
           {/* ========================================================================= */}
 {/* BOTÓN Y VENTANA EMERGENTE (MODAL) DE "SUBIR ANUNCIO"                      */}
 {/* ========================================================================= */}
+<button
+  type="button"
+  onClick={() => {
+    const anunciosTotales = JSON.parse(localStorage.getItem('lista_anuncios') || '[]');
+    setListaAnunciosGuardados(anunciosTotales);
+    setMostrarModalHistorialAnuncios(true);
+  }}
+  className="w-full bg-white text-gray-800 font-black py-3 px-2 transition-all border border-gray-300 rounded-xl hover:border-[#BC955C] hover:shadow-md active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 text-xs"
+  title="Ver historial de anuncios publicados"
+>
+  <span className="text-sm">📋✨</span>
+  <span className="font-extrabold tracking-wide uppercase">Historial</span>
+</button>
+{/* MODAL / VENTANA FLOTANTE: HISTORIAL DE ANUNCIOS */}
+{mostrarModalHistorialAnuncios && (
+  <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[160] flex items-center justify-center p-4">
+    <div className="bg-white rounded-[2rem] shadow-2xl max-w-3xl w-full p-8 relative border border-slate-100 max-h-[85vh] flex flex-col">
+      
+      {/* Encabezado del Modal */}
+      <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-200 shrink-0">
+        <div>
+          <span className="text-[10px] font-black tracking-[.2em] text-[#691C32] uppercase">Panel Directivo</span>
+          <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+            <span>📋✨</span> Historial de Anuncios Publicados
+          </h3>
+        </div>
+        <button 
+          type="button" 
+          onClick={() => setMostrarModalHistorialAnuncios(false)} 
+          className="text-gray-400 hover:text-gray-600 font-bold text-xl px-2 py-1 rounded-full hover:bg-gray-100 transition cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
 
+      {/* Contenido / Listado de Anuncios */}
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+        {listaAnunciosGuardados.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <span className="text-4xl block mb-2">📭</span>
+            <p className="font-bold text-sm">No se ha publicado ningún anuncio todavía.</p>
+          </div>
+        ) : (
+          listaAnunciosGuardados.map((anuncio: any) => (
+            <div 
+              key={anuncio.id} 
+              className="p-5 rounded-2xl border border-gray-200 bg-gray-50 hover:bg-white hover:shadow-md transition-all flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                    anuncio.tipo === 'urgente' ? 'bg-red-100 text-red-700' :
+                    anuncio.tipo === 'evento' ? 'bg-blue-100 text-blue-700' :
+                    anuncio.tipo === 'politica' ? 'bg-purple-100 text-purple-700' :
+                    'bg-amber-100 text-amber-800'
+                  }`}>
+                    {anuncio.tipo}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-bold">
+                    Vigencia: {anuncio.fechaInicio || 'N/A'} al {anuncio.fechaExpiracion || 'N/A'}
+                  </span>
+                </div>
+                <h4 className="text-sm font-extrabold text-slate-800">{anuncio.titulo}</h4>
+                <p className="text-[11px] text-gray-500 font-bold flex items-center gap-1">
+                  📁 Archivo: <span className="text-slate-700">{anuncio.archivo}</span>
+                </p>
+              </div>
+
+              {/* Botones de Descarga y Borrado */}
+              <div className="flex items-center gap-2 w-full md:w-auto justify-end">
+                {anuncio.archivoUrl && (
+                  <a
+                    href={anuncio.archivoUrl}
+                    download={anuncio.archivo}
+                    className="px-3 py-1.5 bg-[#691C32] text-white rounded-lg text-[10px] font-black hover:bg-[#521326] transition shadow-sm"
+                  >
+                    📥 Descargar
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`¿Eliminar el anuncio "${anuncio.titulo}"?`)) {
+                      const nuevosAnuncios = listaAnunciosGuardados.filter(a => a.id !== anuncio.id);
+                      localStorage.setItem('lista_anuncios', JSON.stringify(nuevosAnuncios));
+                      setListaAnunciosGuardados(nuevosAnuncios);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-rose-100 text-rose-700 hover:bg-rose-600 hover:text-white rounded-lg text-[10px] font-black transition"
+                  title="Eliminar de historial"
+                >
+                  🗑️ Eliminar
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Pie del Modal */}
+      <div className="mt-6 pt-4 border-t border-gray-100 flex justify-end shrink-0">
+        <button 
+          type="button" 
+          onClick={() => setMostrarModalHistorialAnuncios(false)} 
+          className="px-6 py-2.5 bg-black hover:bg-gray-800 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md"
+        >
+          Cerrar
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
 {/* 1. EL BOTÓN (Colócalo al lado del botón verde de Excel ajustando tu grid a md:grid-cols-5) */}
 <div className="flex items-end">
   <button
@@ -471,6 +728,180 @@ URL.revokeObjectURL(url);
     </div>
   </div>
 )}
+{/* BOTÓN REPORTES */}
+<div className="flex items-end">
+  <button
+    type="button"
+    onClick={() => setVerModalAreaReporte(true)}
+    className="w-full bg-[#BC955C] hover:bg-[#a67c45] text-white font-black py-3 px-3 transition-all border border-black rounded-xl shadow-sm flex items-center justify-center gap-2 text-xs cursor-pointer"
+    title="Generar reportes estadísticos por área"
+  >
+    <span className="text-sm">📊</span>
+    <span className="font-extrabold tracking-wide uppercase">Reportes</span>
+  </button>
+</div>
+{/* MODAL DE REPORTES POR ÁREA */}
+{verModalAreaReporte && (
+  <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+    <div className="bg-white rounded-[2rem] shadow-2xl max-w-xl w-full p-8 relative border border-slate-200">
+      
+      <div className="flex justify-between items-center mb-6 border-b pb-4">
+        <div>
+          <span className="text-[10px] font-black tracking-widest text-[#691C32] uppercase">Panel de Estadísticas</span>
+          <h3 className="text-xl font-black text-gray-900">Reportes de Incidencias por Área</h3>
+        </div>
+        <button 
+          onClick={() => setVerModalAreaReporte(false)} 
+          className="text-gray-400 hover:text-red-600 font-black text-xl px-3 py-1 rounded-full hover:bg-gray-100 transition cursor-pointer"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2">
+        <label className="block text-xs font-bold text-gray-700 uppercase">Seleccione una Dirección General o de Área:</label>
+        <select 
+          id="selectAreaReporte"
+          className="w-full px-4 py-3 border-2 border-black rounded-xl focus:outline-none focus:ring-2 focus:ring-[#691C32] text-xs font-bold text-gray-900 bg-white"
+          defaultValue=""
+        >
+          <option value="" disabled>-- SELECCIONE UN ÁREA --</option>
+          
+          <optgroup label="DIRECCIONES GENERALES">
+            <option value="Dirección General de Admisión">1. Dirección General de Admisión</option>
+            <option value="Dirección General de Promoción">2. Dirección General de Promoción</option>
+            <option value="Dirección General de Reconocimiento">3. Dirección General de Reconocimiento</option>
+            <option value="Dirección General de Administración">4. Dirección General de Administración</option>
+          </optgroup>
+
+          <optgroup label="DIRECCIONES DE ÁREA">
+            <option value="Dirección de Coordinación Institucional">1. Dirección de Coordinación Institucional</option>
+            <option value="Dirección de Seguimiento para la Consolidación">2. Dirección de Seguimiento para la Consolidación del Servicio Profesional Docente</option>
+            <option value="Dirección de Operación y Seguimiento de los Procesos">3. Dirección de Operación y Seguimiento de los Procesos de Ingreso</option>
+            <option value="Dirección de Promoción en la Función y Horas Adicionales">4. Dirección de Promoción en la Función y Horas Adicionales</option>
+            <option value="Dirección de Consolidación de Información en Educación Básica">5. Dirección de Consolidación de Información en Educación Básica</option>
+            <option value="Dirección de Implementación de Incentivos">6. Dirección de Implementación de Incentivos</option>
+            <option value="Dirección de Promoción en Educación Media Superior">7. Dirección de Promoción en Educación Media Superior</option>
+            <option value="Dirección de Evaluación del Desempeño">8. Dirección de Evaluación del Desempeño</option>
+            <option value="Dirección de Procesos para la Permanencia">9. Dirección de Procesos para la Permanencia</option>
+            <option value="Dirección de Sistemas de Información">10. Dirección de Sistemas de Información</option>
+            <option value="Dirección de Planeación y Administración">11. Dirección de Planeación y Administración</option>
+          </optgroup>
+        </select>
+        <p className="text-[10px] text-slate-500 font-bold">
+          * El reporte incluirá el desglose y conteo exacto de omisiones, retardos, comisiones, permisos económicos, periodos vacacionales y licencias médicas del área seleccionada.
+        </p>
+      </div>
+
+      <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
+        <button 
+          onClick={() => setVerModalAreaReporte(false)} 
+          className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-600 hover:bg-gray-50 text-xs font-bold transition cursor-pointer"
+        >
+          Cancelar
+        </button>
+        <button 
+          onClick={() => {
+            const selectEl = document.getElementById('selectAreaReporte') as HTMLSelectElement;
+            const areaElegida = selectEl?.value;
+            if (!areaElegida) {
+              alert("Por favor seleccione un área de la lista.");
+              return;
+            }
+
+            // Lógica de conteo y generación del archivo CSV con los datos requeridos
+            const todasLasIncidencias = JSON.parse(localStorage.getItem("base_incidencias") || "[]");
+            const incidenciasArea = todasLasIncidencias.filter((e: any) => {
+              const adscripcion = (e.unidadAdscripcion || e.departamento || e.area || "").toUpperCase();
+              return adscripcion.includes(areaElegida.toUpperCase());
+            });
+
+            let omisionEntrada = 0, omisionSalida = 0, retardoMenor = 0, retardoMayor = 0;
+            let comisionEntrada = 0, comisionSalida = 0, comisionTodoElDia = 0, permisoEconomico = 0;
+            let vac1er = 0, vac2do = 0, vacExtra = 0;
+            let licenciaMedica = 0, cuidadosMatPaternos = 0, constanciaMedica = 0;
+
+            incidenciasArea.forEach((e: any) => {
+              const inc = (e.incidencia || e.tipo || "").toUpperCase();
+              if (inc.includes("OMISIÓN DE ENTRADA")) omisionEntrada++;
+              else if (inc.includes("OMISIÓN DE SALIDA")) omisionSalida++;
+              else if (inc.includes("RETARDO MENOR")) retardoMenor++;
+              else if (inc.includes("RETARDO MAYOR")) retardoMayor++;
+              else if (inc.includes("ENTRADA POR COMISIÓN")) comisionEntrada++;
+              else if (inc.includes("SALIDA POR COMISIÓN")) comisionSalida++;
+              else if (inc.includes("COMISIÓN TODO EL DIA")) comisionTodoElDia++;
+              else if (inc.includes("PERMISO ECONÓMICO")) permisoEconomico++;
+              else if (inc.includes("1ER PERÍODO")) vac1er++;
+              else if (inc.includes("2DO PERÍODO")) vac2do++;
+              else if (inc.includes("EXTRAORDINARIAS")) vacExtra++;
+              else if (inc.includes("LICENCIA MÉDICA")) licenciaMedica++;
+              else if (inc.includes("CUIDADOS MATERNOS")) cuidadosMatPaternos++;
+              else if (inc.includes("CONSTANCIA MÉDICA")) constanciaMedica++;
+            });
+
+            const totalGeneral = omisionEntrada + omisionSalida + retardoMenor + retardoMayor + comisionEntrada + comisionSalida + comisionTodoElDia + permisoEconomico + vac1er + vac2do + vacExtra + licenciaMedica + cuidadosMatPaternos + constanciaMedica;
+
+            const rows = [
+              ["REPORTE ESTADÍSTICO DE INCIDENCIAS - USICAMM"],
+              [`ÁREA / DIRECCIÓN: ${areaElegida.toUpperCase()}`],
+              [`FECHA DE CORTE: ${new Date().toLocaleDateString()}`],
+              [`TOTAL DE INCIDENCIAS: ${totalGeneral}`],
+              [],
+              ["TIPO DE INCIDENCIA / PERMISO", "TOTAL REGISTRADOS"],
+              ["OMISIÓN DE ENTRADA", omisionEntrada],
+              ["OMISIÓN DE SALIDA", omisionSalida],
+              ["RETARDO MENOR", retardoMenor],
+              ["RETARDO MAYOR", retardoMayor],
+              ["ENTRADA POR COMISIÓN", comisionEntrada],
+              ["SALIDA POR COMISIÓN", comisionSalida],
+              ["COMISIÓN TODO EL DIA", comisionTodoElDia],
+              ["PERMISO ECONÓMICO", permisoEconomico],
+              ["VACACIONES: 1ER PERÍODO", vac1er],
+              ["VACACIONES: 2DO PERÍODO", vac2do],
+              ["VACACIONES EXTRAORDINARIAS", vacExtra],
+              ["LICENCIA MÉDICA", licenciaMedica],
+              ["CUIDADOS MATERNOS / PATERNOS", cuidadosMatPaternos],
+              ["CONSTANCIA MÉDICA DE TIEMPO DE CONSULTA", constanciaMedica],
+              [],
+              ["DETALLE DE REGISTROS EN ESTE ÁREA"],
+              ["FOLIO", "EMPLEADO", "INCIDENCIA", "ESTATUS", "FECHA"]
+            ];
+
+            incidenciasArea.forEach((e: any) => {
+              const nombreEmp = `${e.paterno || ""} ${e.materno || ""} ${e.nombre || e.nombreEmpleado || ""}`.trim() || "SERVIDOR PÚBLICO";
+              rows.push([
+                `"${e.folioDigital || e.folio || 'N/A'}"`,
+                `"${nombreEmp}"`,
+                `"${e.incidencia || e.tipo || 'N/A'}"`,
+                `"${e.estado || e.estatusActual || 'PENDIENTE'}"`,
+                `"${e.fecha || e.fechaRegistro || 'N/A'}"`
+              ]);
+            });
+
+            const content = "\uFEFF" + rows.map(r => r.join(",")).join("\n");
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            const nombreArchivoLimpieza = areaElegida.replace(/[^a-zA-Z0-9]/g, "_").toUpperCase();
+            link.setAttribute("download", `REPORTE_${nombreArchivoLimpieza}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            setVerModalAreaReporte(false);
+            alert(`¡Reporte de "${areaElegida}" descargado correctamente con todas sus estadísticas!`);
+          }} 
+          className="px-6 py-2.5 bg-[#107C41] hover:bg-[#0E6235] text-white rounded-xl text-xs font-black shadow-lg transition cursor-pointer flex items-center gap-2"
+        >
+          📊 Descargar Excel
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
           <div className="flex items-end">
 <button onClick={descargarExcel} className="w-full bg-[#107C41] hover:bg-[#0E6235] text-white font-black py-3 transition-all shadow-[0px_0px_0px_#000000] border-1 border-black text-xs active:translate-y-1 active:shadow-none">📊</button></div>
         </div>
@@ -491,7 +922,9 @@ URL.revokeObjectURL(url);
              e.estado !== "ACEPTADO" && e.estado !== "RECHAZADO";
     }).length
   })
+  
 </h2>
+
 
 
             <div className="flex gap-4 items-center">
