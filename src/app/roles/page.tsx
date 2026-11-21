@@ -94,36 +94,36 @@ const [mostrarAvisos, setMostrarAvisos] = useState(false);
   const esRolPermitido = (tipoRol: string) => {
     if (!usuario) return false;
     
-    const curp = usuario.curp || '';
-    const nombre = (usuario.nombre || '').toUpperCase();
-    const apellidoPaterno = (usuario.apellidoPaterno || usuario.primer_apellido || '').toUpperCase();
-    const apellidoMaterno = (usuario.apellidoMaterno || '').toUpperCase();
+    // Obtenemos el rol directamente del objeto usuario (normalizado a minúsculas)
+    const rolUsuario = (usuario.rol || usuario.usuario?.rol || '').toLowerCase().trim();
+    const curp = (usuario.curp || '').toUpperCase();
 
-    // 1. Súper Administrador / Acceso Total (CURP de ejemplo o nombre Súper)
-    if (curp === 'PACA040220HMCCHLA3' || nombre === 'SÚPER') {
-      return true;
+    // 1. Súper Administrador / Acceso Total
+    if (rolUsuario === 'super admin' || rolUsuario === 'superadmin' || curp === 'PACA040220HMCCHLA3') {
+      return true; // Acceso absoluto a todo
     }
 
-    // 2. Si ingresa el Superior Jerárquico (CURP empieza con EEE o apellido 'Jerárquico')
-    if (curp.startsWith('EEE') || apellidoPaterno === 'JERÁRQUICO' || apellidoMaterno === 'JERARQUICO') {
-      return tipoRol === 'jefe' || tipoRol === 'empleado';
+    // 2. Si es Empleado (Solo se le habilita su perfil de empleado)
+    if (rolUsuario === 'empleado') {
+      return tipoRol === 'empleado';
     }
 
-    // 3. Si ingresa la Subdirección de Recursos Humanos (CURP empieza con CCC o apellido 'Humanos')
-    if (curp.startsWith('CCC') || apellidoMaterno === 'HUMANOS') {
+    // 3. Si es Recursos Humanos (RH)
+    if (rolUsuario === 'recursos humanos' || rolUsuario === 'rh') {
       return tipoRol === 'empleado' || tipoRol === 'recursos';
     }
 
-    // 4. Dirección General de Administración (CURP empieza con AAA o DGA)
-    if (curp.startsWith('AAA') || apellidoMaterno === 'DGA') {
-      return true;
+    // 4. Si es Superior Jerárquico / Jefe
+    if (rolUsuario === 'jefe' || rolUsuario === 'superior jerarquico') {
+      return tipoRol === 'jefe' || tipoRol === 'empleado';
     }
 
-   // 5. Empleado (Ajustado para que permita su rol si la CURP empieza con DDD o su nombre contiene EMPLEADO)
-    if (curp.startsWith('DDD') || nombre.includes('EMPLEADO')) {
-      return tipoRol === 'empleado';
+    // 5. Dirección / DGA
+    if (rolUsuario === 'dga' || rolUsuario === 'direccion') {
+      return tipoRol === 'dga' || tipoRol === 'dga_titular' || tipoRol === 'empleado';
     }
-    return false; // Por defecto si viene de BD general
+
+    return false; 
   };
 
   const manejarClickRol = (tipoRol: string, ruta: string) => {

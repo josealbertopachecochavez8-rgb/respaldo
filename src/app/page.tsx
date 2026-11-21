@@ -304,29 +304,56 @@ const [datosRegistro, setDatosRegistro] = useState({
   };
 
   // --- FORMULARIO FLEXIBLE: ACEPTA CUALQUIER CURP DE 18 CARACTERES ---
+// --- AUTOGENERAR DATOS CONSULTANDO A MONGODB DESDE EL MODAL ---
   useEffect(() => {
-   if (curpReg.length === 18) {
-      // Si ingresa la CURP exacta de prueba u otra, asigna datos coherentes para el formulario
-      setDatosRegistro({
-        paterno: curpReg === 'PACA040220HMCCHLA3' ? 'PACHECO' : 'REGISTRADO',
-        materno: curpReg === 'PACA040220HMCCHLA3' ? 'CHÁVEZ' : 'SISTEMA',
-        nombre: curpReg === 'PACA040220HMCCHLA3' ? 'JOSE ALBERTO' : 'NUEVO USUARIO',
-        rfc: curpReg.substring(0, 10) + "XXX",
-        noControl: 'USI-2026-' + Math.floor(100 + Math.random() * 900),
-        idServidor: 'ID-' + Math.floor(1000 + Math.random() * 9000),
-        area: 'DIRECCIÓN GENERAL DE ADMINISTRACIÓN',
-        horario: '08:00 - 16:00',
-        correo: datosRegistro.correo // Mantiene el correo si ya lo había escrito
-      });
-    } else if (curpReg.length < 18) {
-      setDatosRegistro({ 
-        paterno: '', materno: '', nombre: '', rfc: '', 
-        noControl: '', idServidor: '', area: '', horario: '',
-        correo: '' 
-      });
-    }
-  }, [curpReg]);
+    const buscarEmpleadoEnDB = async () => {
+      if (curpReg.length === 18) {
+        try {
+          const res = await fetch('/api/empleados', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ curp: curpReg }),
+          });
+          const data = await res.json();
 
+          if (data.success && data.empleado) {
+            const emp = data.empleado;
+            setDatosRegistro((prev) => ({
+  ...prev, // <--- Importante para conservar el estado previo
+  paterno: emp.paterno || emp.primerApellido || emp['Primer Apellido'] || '',
+  materno: emp.materno || emp.segundoApellido || emp.apellidoMaterno || emp['Segundo Apellido'] || '', // <--- Cubre todas las variantes
+  nombre: emp.nombre || emp.nombres || emp['Nombre (s)'] || '',
+  rfc: emp.rfc || emp['R.F.C. (Con Homoclave)'] || '',
+  noControl: emp.noControl || `USI-2026-${emp.no || '001'}`,
+  idServidor: emp.idServidor || `ID-${Math.floor(1000 + Math.random() * 9000)}`,
+  area: emp.area || emp.adscripcion || 'DIRECCIÓN GENERAL DE ADMINISTRACIÓN',
+  horario: emp.horario || '08:00 - 16:00',
+  correo: emp.correo || emp.correoElectronico || emp['Correo Electrónico'] || prev.correo || '',
+}));
+          } else {
+            alert(data.message || 'La CURP no se encuentra registrada en la base de datos de empleados.');
+          }
+        } catch (error) {
+          console.error('Error de conexión al buscar empleado:', error);
+          alert('Error de conexión al consultar la base de datos.');
+        }
+      } else if (curpReg.length < 18) {
+        setDatosRegistro({
+          paterno: '',
+          materno: '',
+          nombre: '',
+          rfc: '',
+          noControl: '',
+          idServidor: '',
+          area: '',
+          horario: '',
+          correo: '',
+        });
+      }
+    };
+
+    buscarEmpleadoEnDB();
+  }, [curpReg]);
   // --- 5. INTERFAZ VISUAL ---
   return (
     <main className="min-h-screen bg-[#f2f2f2] flex flex-col items-center justify-center p-4 font-sans text-gray-800">

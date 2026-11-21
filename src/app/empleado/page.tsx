@@ -17,11 +17,23 @@ interface HistoricoIncidencia {
 }
 export default function FormatoEmpleadoFinal() {
   const router = useRouter();
+  const [montado, setMontado] = useState(false);
+  
   const { setIncidencias } = useIncidencias() || { setIncidencias: () => {} };
   const [horaActual, setHoraActual] = useState('');
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [nombramiento, setNombramiento] = useState('');
-  const [fechaPermisoEconomico, setFechaPermisoEconomico] = useState('');
+const [nombramiento, setNombramiento] = useState(() => {
+  
+  if (typeof window === 'undefined') return '';
+  try {
+    const sesion = JSON.parse(localStorage.getItem('usuario') || '{}');
+    const usr = sesion.usuario || sesion;
+    return (usr.tipoPlaza || '').toUpperCase().trim();
+  } catch (e) {
+    return '';
+  }
+});
+ const [fechaPermisoEconomico, setFechaPermisoEconomico] = useState('');
   
   const [motivo, setMotivo] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
@@ -110,19 +122,54 @@ const [horaBiometrico, setHoraBiometrico] = useState('');
   });  // NUEVOS ESTADOS PARA EL HISTÓRICO
   const [verHistorico, setVerHistorico] = useState(false);
 const [misIncidencias, setMisIncidencias] = useState<HistoricoIncidencia[]>([]);  // DATOS ESTÁTICOS DEL SERVIDOR
-  const [datos] = useState({
-    paterno: "PACHECO",
-    materno: "CHÁVEZ",
-    nombres: "JOSE ALBERTO",
-    rfc: "PACA950101XXX",
-    curp: "PACA950101HDFXXX01",
-    noControl: "2026-098",
-    puesto: "INGENIERO RESIDENTE",
-    id: "",
-    clavePresupuestal: "11007-2111-001",
-    adscripcion: "DIRECCIÓN GENERAL DE ADMINISTRACIÓN",
-    horario: "08:00 - 16:00"
+const [datos, setDatos] = useState({
+    paterno: '',
+    materno: '',
+    nombres: '',
+    rfc: '',
+    curp: '',
+    noControl: '',
+    puesto: '',
+    id: '',
+    clavePresupuestal: '11007-2111-001',
+    adscripcion: 'DIRECCIÓN GENERAL DE ADMINISTRACIÓN',
+    horario: '08:00 - 16:00',
+    tipoPlaza: '' // <--- Aquí guardaremos el tipo de plaza que viene de la BD
   });
+
+  // Efecto para leer los datos reales de la sesión guardada en el navegador
+  useEffect(() => {
+    const sesionGuardada = localStorage.getItem('usuario');
+    if (sesionGuardada) {
+      try {
+        const parsed = JSON.parse(sesionGuardada);
+        const usr = parsed.usuario || parsed;
+
+        setDatos({
+          paterno: usr.apellidoPaterno || usr.paterno || '',
+          materno: usr.apellidoMaterno || usr.materno || '',
+          nombres: usr.nombre || usr.nombres || '',
+          rfc: usr.rfc || '',
+          curp: usr.curp || '',
+          noControl: usr.noControl || '2026-001',
+          puesto: usr.puesto || '',
+          id: usr.no || '',
+          clavePresupuestal: usr.clavePresupuestal || '11007-2111-001',
+          adscripcion: usr.area || usr.adscripcion || 'DIRECCIÓN GENERAL DE ADMINISTRACIÓN',
+          horario: usr.horario || '08:00 - 16:00',
+          tipoPlaza: (usr.tipoPlaza || '').toUpperCase().trim()
+        });
+
+        // Si la base de datos ya trae el tipo de plaza (ej. "BASE" o "CONFIANZA"), 
+        // lo asignamos automáticamente al estado de nombramiento para que no tengas que seleccionarlo manualmente
+        if (usr.tipoPlaza) {
+          setNombramiento(usr.tipoPlaza.toUpperCase().includes('CONFIANZA') ? 'CONFIANZA' : 'BASE');
+        }
+      } catch (e) {
+        console.error("Error al leer sesión:", e);
+      }
+    }
+  }, []);
 
 const [notificaciones, setNotificaciones] = useState<{ id: number; tramite: string; estatus: string; nota: string }[]>([]);
 
@@ -387,26 +434,23 @@ const manejarEnvio = async (e: React.MouseEvent<HTMLButtonElement>) => {
           </div>
           <div className="col-span-3 p-2 flex justify-center items-center"><img src="/logo-usicamm.png" alt="USICAMM" className="h-24 object-contain" /></div>
         </div>
-
-        {/* DATOS PERSONALES */}
-        <div className="p-3 grid grid-cols-4 gap-2 border-b-2 border-black font-bold">
-          <div className="border-b border-black">Paterno:<br/>{datos.paterno}</div>
-          <div className="border-b border-black">Materno:<br/>{datos.materno}</div>
-          <div className="col-span-2 border-b border-black">Nombre (s):<br/>{datos.nombres}</div>
-          <div className="border-b border-black">RFC: {datos.rfc}</div>
-          <div className="border-b border-black">CURP: {datos.curp}</div>
-          <div className="border-b border-black">No. Control: {datos.noControl}</div>
-          <div className="col-span-2 border-b border-black">Área: {datos.adscripcion}</div>
-          <div className="border-b border-black">Horario: {datos.horario}</div>
-          <div className="border-b border-black bg-gray-50">
-            Plaza:
-            <select className="ml-1 border border-black bg-white text-[9px] font-bold" onChange={(e)=>setNombramiento(e.target.value)}>
-              <option value="">- SELECCIONE -</option>
-              <option value="BASE">BASE</option>
-              <option value="CONFIANZA">CONFIANZA</option>
-            </select>
-          </div>
-        </div>
+{/* DATOS PERSONALES */}
+<div className="p-3 grid grid-cols-4 gap-2 border-b-2 border-black font-bold">
+  <div className="border-b border-black">Paterno:<br/>{datos.paterno}</div>
+  <div className="border-b border-black">Materno:<br/>{datos.materno}</div>
+  <div className="col-span-2 border-b border-black">Nombre (s):<br/>{datos.nombres}</div>
+  <div className="border-b border-black">RFC: {datos.rfc}</div>
+  <div className="border-b border-black">CURP: {datos.curp}</div>
+  <div className="border-b border-black">No. Control: {datos.noControl}</div>
+  <div className="col-span-2 border-b border-black">Área: {datos.adscripcion}</div>
+  <div className="border-b border-black">Horario: {datos.horario}</div>
+  <div className="border-b border-black bg-gray-50">
+    Plaza:<br/>
+    <span className="font-bold text-black uppercase">
+      {nombramiento || 'NO ASIGNADA'}
+    </span>
+  </div>
+</div>
 
         {/* ===== MENÚ DE TRÁMITES (TABS) ===== */}
         <div className="border-b-2 border-black bg-gray-100 flex divide-x-2 divide-black">
